@@ -1,0 +1,58 @@
+# Version Control
+.git/
+.gitignore
+
+# Virtual Environments
+.venv/
+venv/
+env/
+
+# Python Bytecode & Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Local Secrets & Credentials
+.env
+.env.*
+!.env.example
+
+# IDEs & System Files
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Runtime SQLite Database (Candidate Privacy & Isolation)
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+*.db
+*.sqlite
+
+# Candidate Uploaded Files (Privacy Protection)
+data/uploads/*
+!data/uploads/.gitkeep
+
+# Persistent Vector Store (Ephemeral in Container)
+data/vector_store/*
+!data/vector_store/.gitkeep
+
+# Model Weight Caches (Downloaded during build or runtime)
+data/models/*
+!data/models/.gitkeep
+.cache/
+
+# Audio Files
+*.wav
+*.mp3
+*.m4a
+*.ogg
+*.webm
+
+# Documentation & Assets not required for execution
+docs/assets/
+scratch/
