@@ -89,11 +89,13 @@ class TestPhase11FrontendArchitecture(unittest.TestCase):
         import frontend.components.report
         import frontend.components.setup
         import frontend.components.sidebar
+        import frontend.server_manager
         import frontend.state
         import frontend.styles
 
         self.assertIsNotNone(frontend.app)
         self.assertIsNotNone(frontend.api_client)
+        self.assertIsNotNone(frontend.server_manager)
 
     def test_b_no_gemini_client_in_frontend(self):
         """B. Frontend code must NEVER directly import Gemini SDK or LLM clients."""
@@ -297,6 +299,66 @@ class TestPhase11FrontendArchitecture(unittest.TestCase):
             from frontend.api_client import check_backend_health
             is_healthy = check_backend_health()
             self.assertFalse(is_healthy)
+
+    def test_r_bridge_secrets_to_env_safe_population(self):
+        """R. bridge_secrets_to_env extracts GEMINI_API_KEY into os.environ safely without error."""
+        import streamlit as st
+        from frontend.server_manager import bridge_secrets_to_env
+
+        # Save existing env if present
+        saved_key = os.environ.get("GEMINI_API_KEY")
+        if "GEMINI_API_KEY" in os.environ:
+            del os.environ["GEMINI_API_KEY"]
+
+        try:
+            # Simulate st.secrets with mock dictionary
+            with patch.object(st, "secrets", {"GEMINI_API_KEY": "test-mock-key-123", "API_BASE_URL": "http://127.0.0.1:8000"}):
+                bridge_secrets_to_env()
+                self.assertEqual(os.environ.get("GEMINI_API_KEY"), "test-mock-key-123")
+                self.assertEqual(os.environ.get("API_BASE_URL"), "http://127.0.0.1:8000")
+        finally:
+            # Restore original environment
+            if saved_key is not None:
+                os.environ["GEMINI_API_KEY"] = saved_key
+            elif "GEMINI_API_KEY" in os.environ:
+                del os.environ["GEMINI_API_KEY"]
+
+    def test_s_ensure_backend_running_healthy_noop(self):
+        """S. ensure_backend_running returns True immediately when backend is already healthy."""
+        from frontend.server_manager import ensure_backend_running
+
+        with patch("frontend.server_manager.check_backend_health", return_value=True):
+            with patch("frontend.server_manager.get_backend_manager") as mock_get_mgr:
+                result = ensure_backend_running(timeout_seconds=1)
+                self.assertTrue(result)
+                mock_get_mgr.assert_not_called()
+
+    def test_t_backend_process_manager_lifecycle(self):
+        """T. BackendProcessManager launches uvicorn subprocess when backend is offline."""
+        from frontend.server_manager import BackendProcessManager
+
+        mgr = BackendProcessManager(repo_root="/test/root")
+        self.assertFalse(mgr.is_alive())
+
+        mock_proc = MagicMock()
+        mock_proc.poll.return_value = None
+
+        with patch("frontend.server_manager.check_backend_health", return_value=False):
+            with patch("subprocess.Popen", return_value=mock_proc) as mock_popen:
+                mgr.start()
+                self.assertTrue(mgr.is_alive())
+                mock_popen.assert_called_once()
+                args, kwargs = mock_popen.call_args
+                cmd = args[0]
+                self.assertIn("-m", cmd)
+                self.assertIn("uvicorn", cmd)
+                self.assertIn("app.main:app", cmd)
+                self.assertIn("8000", cmd)
+                self.assertEqual(kwargs.get("cwd"), "/test/root")
+
+                # Test graceful stop
+                mgr.stop()
+                mock_proc.terminate.assert_called_once()
 
 
 if __name__ == "__main__":

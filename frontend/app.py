@@ -16,13 +16,14 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-from frontend.api_client import APIError, check_backend_health, get_or_create_demo_user
+from frontend.api_client import APIError, get_or_create_demo_user
 from frontend.components.history import render_history_page
 from frontend.components.home import render_home_page
 from frontend.components.interview import render_interview_page
 from frontend.components.report import render_report_page
 from frontend.components.setup import render_setup_page
 from frontend.components.sidebar import render_sidebar
+from frontend.server_manager import ensure_backend_running
 from frontend.state import init_session_state
 from frontend.styles import apply_custom_styles
 
@@ -35,8 +36,8 @@ def main():
     # Initialize session state keys
     init_session_state()
 
-    # Check backend connectivity
-    is_healthy = check_backend_health()
+    # Ensure backend is running (autostarts FastAPI in background on Streamlit Cloud)
+    is_healthy = ensure_backend_running(repo_root)
     st.session_state.backend_connected = is_healthy
 
     # Ensure demo user exists
@@ -57,9 +58,14 @@ def main():
         st.error(
             "⚠️ **Backend service is not running.**\n\n"
             "The Streamlit frontend communicates with the FastAPI backend at `http://127.0.0.1:8000`.\n\n"
-            "Please start the backend server in a terminal:\n"
+            "**Cloud Deployment (Streamlit Community Cloud):**\n"
+            "- Verify that `GEMINI_API_KEY` is configured under **App Settings -> Secrets**.\n"
+            "- Check the Streamlit Cloud **Logs** panel for backend startup messages.\n"
+            "- Initial cold boot may take 20–30 seconds; please refresh the page.\n\n"
+            "**Local Development:**\n"
+            "Start the FastAPI backend server in a separate terminal:\n"
             "```bash\n"
-            ".venv\\Scripts\\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000\n"
+            "python -m uvicorn app.main:app --host 127.0.0.1 --port 8000\n"
             "```\n"
             "Then refresh this page."
         )
